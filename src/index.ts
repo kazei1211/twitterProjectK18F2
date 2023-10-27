@@ -1,7 +1,6 @@
 import express, { NextFunction } from 'express'
 import usersRoute from './routes/users.routes'
 import databaseService from './services/database.services'
-import { Request, Response } from 'express'
 import { defaultErrorHandler } from './middlewares/error.middlewares'
 
 const app = express()

@@ -6,7 +6,7 @@ import { ErrorWithStatus } from '~/models/Errors'
 export const defaultErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
   //error everywhere will be return here
   if (err instanceof ErrorWithStatus) {
-    res.status(err.status).json(omit(err, ['status']))
+    return res.status(err.status).json(omit(err, ['status']))
   }
 
   //if the error reach here

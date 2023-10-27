@@ -1,7 +1,6 @@
 // pretend i am a route '/login'
 // so the userd will send you email and password
 // then i will create 1 req has a body consists of email and password
-import exp from 'constants'
 import { Request, Response, NextFunction } from 'express'
 import { checkSchema } from 'express-validator'
 import { JsonWebTokenError } from 'jsonwebtoken'

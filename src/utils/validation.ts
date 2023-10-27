@@ -1,8 +1,6 @@
-import express from 'express'
 import { body, validationResult, ValidationChain } from 'express-validator'
 import { RunnableValidationChains } from 'express-validator/src/middlewares/schema'
 import { NextFunction, Request, Response } from 'express-serve-static-core'
-import e from 'express'
 import { EntityError, ErrorWithStatus } from '~/models/Errors'
 // can be reused by many routes
 

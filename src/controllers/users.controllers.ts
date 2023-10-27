@@ -1,10 +1,8 @@
 import { Request, Response } from 'express'
 import User from '~/models/schemas/User.schema'
-import databaseService from '~/services/database.services'
 import usersService from '~/services/user.services'
 import { ParamsDictionary } from 'express-serve-static-core'
 import { LoginReqBody, LogoutReqBody, RegisterReqBody } from '~/models/requests/User.request'
-import { ErrorWithStatus } from '~/models/Errors'
 import { ObjectId } from 'mongodb'
 import { USERS_MESSAGE } from '~/constants/messages'
 export const loginController = async (req: Request<ParamsDictionary, any, LoginReqBody>, res: Response) => {

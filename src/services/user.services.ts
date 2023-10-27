@@ -6,7 +6,6 @@ import { signToken } from '~/utils/jwt'
 import { TokenType } from '~/constants/enums'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
 import { ObjectId } from 'mongodb'
-import { log } from 'console'
 import { USERS_MESSAGE } from '~/constants/messages'
 
 class UsersService {
