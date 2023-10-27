@@ -8,5 +8,5 @@ export enum TokenType {
   AccessToken, // token truy cập
   RefreshToken, // token làm mới
   ForgotPasswordToken,
-  EmailVerifyToken
+  EmailVerificationToken
 }

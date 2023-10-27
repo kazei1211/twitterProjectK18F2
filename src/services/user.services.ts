@@ -21,6 +21,11 @@ class UsersService {
       options: { expiresIn: process.env.REFRESH_TOKEN_EXPIRE_IN }
     })
   }
+
+  //  signRefreshToken(user_id: string) and signAccessToken(user_id: string) are private functions that are used to sign refresh token and access token respectively. Both functions take user_id as an argument and return a token. The difference between the two functions is that signRefreshToken() returns a refresh token and signAccessToken() returns an access token.
+  private signAccessTokenAndRefreshToken(user_id: string) {
+    return Promise.all([this.signAccessToken(user_id), this.signRefreshToken(user_id)])
+  }
   async checkEmailExists(email: string) {
     const user = await databaseService.users.findOne({ email })
     return Boolean(user)
@@ -28,14 +33,19 @@ class UsersService {
 
   async register(payLoad: RegisterReqBody) {
     const result = await databaseService.users.insertOne(
-      new User({ ...payLoad, date_of_birth: new Date(payLoad.date_of_birth), password: hashPassword(payLoad.password) })
+      new User({
+        ...payLoad,
+        date_of_birth: new Date(payLoad.date_of_birth),
+        password: hashPassword(payLoad.password)
+      })
     )
     const user_id = result.insertedId.toString()
-    const [access_token, refresh_token] = await Promise.all([
-      this.signRefreshToken(user_id),
-      this.signRefreshToken(user_id)
-    ])
-    return [access_token, refresh_token]
+    const [access_token, refresh_token] = await this.signAccessTokenAndRefreshToken(user_id)
+    return { access_token, refresh_token }
+  }
+  async login(user_id: string) {
+    const [access_token, refresh_token] = await this.signAccessTokenAndRefreshToken(user_id)
+    return { access_token, refresh_token }
   }
 }
 
