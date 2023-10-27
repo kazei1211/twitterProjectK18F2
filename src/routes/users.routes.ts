@@ -1,9 +1,10 @@
 import { Router } from 'express'
-import { loginController } from '~/controllers/users.controllers'
-import { loginValidator } from '~/middlewares/users.middlewares'
+import { loginController, logoutController } from '~/controllers/users.controllers'
+import { accessTokenValidator, loginValidator, refreshTokenValidator } from '~/middlewares/users.middlewares'
 import { registerController } from '~/controllers/users.controllers'
 import { registerValidator } from '~/middlewares/users.middlewares'
 import { wrapAsync } from '~/utils/handler'
+import RefreshToken from '~/models/schemas/RefreshToken.schema'
 const usersRoute = Router()
 
 // des: login user
@@ -30,4 +31,15 @@ Bpdy:{
 */
 usersRoute.post('/register', registerValidator, wrapAsync(registerController))
 
+/*
+description: logout user
+path: /users/logout
+method: POST
+body: {
+  "refresh_token": string
+  headers: {Authorization: Bearer ${access_token}
+  body: {refresh_token: string}
+}
+ */
+usersRoute.post('/logout', accessTokenValidator, refreshTokenValidator, wrapAsync(logoutController))
 export default usersRoute
