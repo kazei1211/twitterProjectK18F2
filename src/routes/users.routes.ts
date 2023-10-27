@@ -14,7 +14,7 @@ const usersRoute = Router()
 //   "password": string
 // }
 
-usersRoute.get('/login', loginValidator, loginController)
+usersRoute.get('/login', loginValidator, wrapAsync(loginController))
 
 /*
 Description: resiter new user
