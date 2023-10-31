@@ -27,6 +27,15 @@ class UsersService {
     })
   }
 
+  //forgot password token function
+  private signForgotPasswordVerifyToken(user_id: string) {
+    return signToken({
+      payLoad: { user_id, token_type: TokenType.ForgotPasswordToken },
+      options: { expiresIn: process.env.FORGOT_PASSWORD_TOKEN_EXPIRE_IN },
+      privateKey: process.env.JWT_SECRET_FORGOT_PASSWORD_TOKEN as string
+    })
+  }
+
   //function này để lấy id của user và đưa vào payload để tạo ra refresh token
 
   private signRefreshToken(user_id: string) {
@@ -101,6 +110,18 @@ class UsersService {
     //simulate sending email
     console.log(email_verify_token)
     return { message: USERS_MESSAGE.RESEND_EMAIL_VERIFY_SUCCESS }
+  }
+
+  async forgotPassword(user_id: string) {
+    //create forgot password token
+    const forgot_password_token = await this.signForgotPasswordVerifyToken(user_id)
+    //update user with that user_id and set forgot_password_token = forgot_password_token
+    await databaseService.users.updateOne({ _id: new ObjectId(user_id) }, [
+      { $set: { forgot_password_token, update_at: '$$NOW' } }
+    ])
+    //simulate sending email
+    console.log(forgot_password_token)
+    return { message: USERS_MESSAGE.CHECK_EMAIL_FOR_RESET_PASSWORD }
   }
 }
 

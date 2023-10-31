@@ -1,15 +1,19 @@
 import { Router } from 'express'
 import {
   emailVerifyTokenController,
+  forgotPasswordController,
   loginController,
   logoutController,
-  resendEmailVerifyTokenController
+  resendEmailVerifyTokenController,
+  verifyForgotPasswordTokenController
 } from '~/controllers/users.controllers'
 import {
   accessTokenValidator,
   emailVerifyTokenValidator,
+  forgotPasswordValidator,
   loginValidator,
-  refreshTokenValidator
+  refreshTokenValidator,
+  verifyForgotPasswordTokenValidator
 } from '~/middlewares/users.middlewares'
 import { registerController } from '~/controllers/users.controllers'
 import { registerValidator } from '~/middlewares/users.middlewares'
@@ -64,6 +68,7 @@ method: Post
 body: {email_verify_token: string}
 */
 usersRoute.post('/verify-email', emailVerifyTokenValidator, wrapAsync(emailVerifyTokenController))
+
 /*
 description: resend email verify token
 when the email is lost or email verify token is expired, user can resend the email verify token
@@ -72,6 +77,31 @@ path: /users/resend-email-verify-token
 headers: {Authorization: Bearer ${access_token} // user have to login first to get the access token
 body: {}
 */
-
 usersRoute.post('/resend-email-verify-token', accessTokenValidator, wrapAsync(resendEmailVerifyTokenController))
+
+/*
+description: forgot password, the user sendd the email request to reset password
+we will send them the forgot_password_token to their email
+path: /users/forgot-password
+method: post
+body: {email: string}
+*/
+usersRoute.post('/forgot-password', forgotPasswordValidator, wrapAsync(forgotPasswordController))
+
+/*
+des: user enter the lnk fo rrreset password
+they wil send a rewuqest with the forgot_password_token and new password
+sever will check the forgot_password_token is valid or not
+if valid, sever will direect to chang password page update the user with that user_id and set password = new password
+path: /users/reset-password
+method: post
+body: {forgot_password_token: string}
+*/
+
+usersRoute.post(
+  '/verify-forgot-password',
+  verifyForgotPasswordTokenValidator,
+  wrapAsync(verifyForgotPasswordTokenController)
+)
+
 export default usersRoute
