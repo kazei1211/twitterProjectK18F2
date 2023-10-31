@@ -2,7 +2,7 @@
 // so the userd will send you email and password
 // then i will create 1 req has a body consists of email and password
 import { Request, Response, NextFunction } from 'express'
-import { checkSchema } from 'express-validator'
+import { check, checkSchema } from 'express-validator'
 import { JsonWebTokenError } from 'jsonwebtoken'
 import { capitalize } from 'lodash'
 import HTTP_STATUS from '~/constants/httpStatus'
@@ -162,9 +162,6 @@ export const accessTokenValidator = validate(
     {
       Authorization: {
         trim: true,
-        notEmpty: {
-          errorMessage: USERS_MESSAGE.ACCESS_TOKEN_IS_REQUIRED
-        },
         custom: {
           options: async (value: string, { req }) => {
             const accessToken = value.split(' ')[1]
@@ -177,7 +174,10 @@ export const accessTokenValidator = validate(
             }
             try {
               //if they have access token
-              const decoded_authorization = await verifyToken({ token: accessToken })
+              const decoded_authorization = await verifyToken({
+                token: accessToken,
+                secreteOrPublicKey: process.env.JWT_SECRET_ACCESS_TOKEN as string
+              })
               //we need to verify that accesstoken and get the decoded_authoriation(payload), store it in req.user
               ;(req as Request).decoded_authorization = decoded_authorization
             } catch (err) {
@@ -199,15 +199,12 @@ export const refreshTokenValidator = validate(
     {
       refresh_token: {
         trim: true,
-        notEmpty: {
-          errorMessage: USERS_MESSAGE.REFRESH_TOKEN_IS_REQUIRED
-        },
         custom: {
           options: async (value: string, { req }) => {
             //verify the refresh token
             try {
               const [decoded_refresh_token, refresh_token] = await Promise.all([
-                verifyToken({ token: value }),
+                verifyToken({ token: value, secreteOrPublicKey: process.env.JWT_SECRET_REFRESH_TOKEN as string }),
                 databaseService.refreshTokens.findOne({
                   token: value
                 })
@@ -220,6 +217,48 @@ export const refreshTokenValidator = validate(
               }
               //store it in req.decoded_refresh_token
               ;(req as Request).decoded_refresh_token = decoded_refresh_token
+            } catch (err) {
+              if (err instanceof JsonWebTokenError) {
+                throw new ErrorWithStatus({
+                  message: capitalize((err as JsonWebTokenError).message),
+                  status: HTTP_STATUS.UNAUTHORIZED
+                })
+              }
+              throw err
+            }
+            return true
+          }
+        }
+      }
+    },
+    ['body']
+  )
+)
+export const emailVerifyTokenValidator = validate(
+  checkSchema(
+    {
+      email_verify_token: {
+        trim: true,
+        custom: {
+          options: async (value: string, { req }) => {
+            //check if the user post the request with email_verify_token
+            if (!value) {
+              throw new ErrorWithStatus({
+                message: USERS_MESSAGE.EMAIL_VERIFY_TOKEN_IS_REQUIRED,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+
+            //verify the email_verify_token
+            try {
+              const decoded_email_verify_token = await verifyToken({
+                token: value,
+                secreteOrPublicKey: process.env.JWT_SECRET_EMAIL_VERIFY_TOKEN as string
+              })
+
+              //after successfully verify the email_verify_token, we have a payload
+              //store it in req.decoded_email_verify_token
+              ;(req as Request).decoded_email_verify_token = decoded_email_verify_token
             } catch (err) {
               if (err instanceof JsonWebTokenError) {
                 throw new ErrorWithStatus({

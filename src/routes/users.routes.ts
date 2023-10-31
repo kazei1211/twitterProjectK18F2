@@ -1,10 +1,15 @@
 import { Router } from 'express'
-import { loginController, logoutController } from '~/controllers/users.controllers'
-import { accessTokenValidator, loginValidator, refreshTokenValidator } from '~/middlewares/users.middlewares'
+import { emailVerifyTokenController, loginController, logoutController } from '~/controllers/users.controllers'
+import {
+  accessTokenValidator,
+  emailVerifyTokenValidator,
+  loginValidator,
+  refreshTokenValidator
+} from '~/middlewares/users.middlewares'
 import { registerController } from '~/controllers/users.controllers'
 import { registerValidator } from '~/middlewares/users.middlewares'
 import { wrapAsync } from '~/utils/handler'
-import RefreshToken from '~/models/schemas/RefreshToken.schema'
+
 const usersRoute = Router()
 
 // des: login user
@@ -42,4 +47,16 @@ body: {
 }
  */
 usersRoute.post('/logout', accessTokenValidator, refreshTokenValidator, wrapAsync(logoutController))
+
+/*
+Description: verify email token,
+when user register, they will recieve an email with a link: http://localhost:3000/users/verify-email?token=<email_verify_token> to verify their email
+if they click the link, it will create a req with this token and send to sever 
+check if the token is valid,
+form decoded_authorization, we can get user_id and then update the user with that user_id token = '' verified = true, update at = new Date()
+path: /users/verify-email
+method: Post
+body: {email_verify_token: string}
+*/
+usersRoute.post('/verify-email', emailVerifyTokenValidator, wrapAsync(emailVerifyTokenController))
 export default usersRoute

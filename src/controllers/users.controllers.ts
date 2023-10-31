@@ -2,9 +2,15 @@ import { Request, Response } from 'express'
 import User from '~/models/schemas/User.schema'
 import usersService from '~/services/user.services'
 import { ParamsDictionary } from 'express-serve-static-core'
-import { LoginReqBody, LogoutReqBody, RegisterReqBody } from '~/models/requests/User.request'
+import { LoginReqBody, LogoutReqBody, RegisterReqBody, TokenPayload } from '~/models/requests/User.request'
 import { ObjectId } from 'mongodb'
 import { USERS_MESSAGE } from '~/constants/messages'
+import databaseService from '~/services/database.services'
+import { ErrorWithStatus } from '~/models/Errors'
+import HTTP_STATUS from '~/constants/httpStatus'
+import { Verify } from 'crypto'
+import { UserVerifyStatus } from '~/constants/enums'
+import { read } from 'fs'
 export const loginController = async (req: Request<ParamsDictionary, any, LoginReqBody>, res: Response) => {
   //get user from req
   const user = req.user as User
@@ -32,4 +38,30 @@ export const logoutController = async (req: Request<ParamsDictionary, any, Logou
   const refresh_token = req.body.refresh_token
   const result = await usersService.logout(refresh_token)
   res.json(result)
+}
+
+export const emailVerifyTokenController = async (req: Request, res: Response) => {
+  //if the code reach here that mean the email_verify_token is valid and we got the decoded_email_verify_token from the middleware
+  const { user_id } = req.decoded_email_verify_token as TokenPayload
+  //base on the user_id, we check the user has validated orr not and then update the user with that user_id and set verified = true, email_verify_token = ''
+  const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+  if (user === null) {
+    throw new ErrorWithStatus({
+      message: USERS_MESSAGE.USER_NOT_FOUND,
+      status: HTTP_STATUS.NOT_FOUND
+    })
+  }
+
+  if (user.verify === UserVerifyStatus.Verified && user.email_verify_token === '') {
+    return res.json({
+      message: USERS_MESSAGE.USER_ALREADY_VERIFIED
+    })
+  }
+
+  //if reach here, that mean the user is not verified yet, we update the user with that user_id and set verified = true, email_verify_token = ''
+  const result = await usersService.verifyEmail(user_id)
+  res.json({
+    message: USERS_MESSAGE.EMAIL_VERIFY_SUCCESS,
+    result
+  })
 }

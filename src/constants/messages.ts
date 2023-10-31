@@ -32,5 +32,9 @@ export const USERS_MESSAGE = {
   REFRESH_TOKEN_IS_REQUIRED: 'Refresh token is required',
   REFRESH_TOKEN_IS_INVALID: 'Refresh token is invalid',
   ACCESS_TOKEN_IS_INVALID: 'Refresh token is invalid',
-  USED_REFRESH_TOKEN_OR_NOT_EXISTS: 'Used refresh token or not exists'
+  USED_REFRESH_TOKEN_OR_NOT_EXISTS: 'Used refresh token or not exists',
+  EMAIL_VERIFY_TOKEN_IS_REQUIRED: 'Email verify token is required',
+  USER_NOT_FOUND: 'User not found',
+  USER_ALREADY_VERIFIED: 'User already verified',
+  EMAIL_VERIFY_SUCCESS: 'Email verified successfully'
 } as const
