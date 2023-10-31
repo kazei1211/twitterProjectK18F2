@@ -2,7 +2,13 @@ import { Request, Response } from 'express'
 import User from '~/models/schemas/User.schema'
 import usersService from '~/services/user.services'
 import { ParamsDictionary } from 'express-serve-static-core'
-import { LoginReqBody, LogoutReqBody, RegisterReqBody, TokenPayload } from '~/models/requests/User.request'
+import {
+  EmailVerifyRequestBody,
+  LoginReqBody,
+  LogoutReqBody,
+  RegisterReqBody,
+  TokenPayload
+} from '~/models/requests/User.request'
 import { ObjectId } from 'mongodb'
 import { USERS_MESSAGE } from '~/constants/messages'
 import databaseService from '~/services/database.services'
@@ -40,10 +46,47 @@ export const logoutController = async (req: Request<ParamsDictionary, any, Logou
   res.json(result)
 }
 
-export const emailVerifyTokenController = async (req: Request, res: Response) => {
+export const emailVerifyTokenController = async (
+  req: Request<ParamsDictionary, any, EmailVerifyRequestBody>,
+  res: Response
+) => {
   //if the code reach here that mean the email_verify_token is valid and we got the decoded_email_verify_token from the middleware
   const { user_id } = req.decoded_email_verify_token as TokenPayload
   //base on the user_id, we check the user has validated orr not and then update the user with that user_id and set verified = true, email_verify_token = ''
+  const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+  if (user === null) {
+    throw new ErrorWithStatus({
+      message: USERS_MESSAGE.USER_NOT_FOUND,
+      status: HTTP_STATUS.NOT_FOUND
+    })
+  }
+
+  //if the the verify cation token is not match
+  if (user.email_verify_token !== (req.body.email_verify_token as string)) {
+    throw new ErrorWithStatus({
+      message: USERS_MESSAGE.INVALID_EMAIL_VERIFY_TOKEN,
+      status: HTTP_STATUS.UNAUTHORIZED
+    })
+  }
+  //if the user is already verified, we return the message
+  if (user.verify === UserVerifyStatus.Verified && user.email_verify_token === '') {
+    return res.json({
+      message: USERS_MESSAGE.USER_ALREADY_VERIFIED
+    })
+  }
+
+  //if reach here, that mean the user is not verified yet, we update the user with that user_id and set verified = true, email_verify_token = ''
+  const result = await usersService.verifyEmail(user_id)
+  return res.json({
+    message: USERS_MESSAGE.EMAIL_VERIFY_SUCCESS,
+    result
+  })
+}
+
+export const resendEmailVerifyTokenController = async (req: Request, res: Response) => {
+  //if reach here then the access token is valid and we got the decoded_access_token from the middleware
+  const { user_id } = req.decoded_authorization as TokenPayload
+  //check if the user has verified or not
   const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
   if (user === null) {
     throw new ErrorWithStatus({
@@ -58,10 +101,14 @@ export const emailVerifyTokenController = async (req: Request, res: Response) =>
     })
   }
 
-  //if reach here, that mean the user is not verified yet, we update the user with that user_id and set verified = true, email_verify_token = ''
-  const result = await usersService.verifyEmail(user_id)
-  res.json({
-    message: USERS_MESSAGE.EMAIL_VERIFY_SUCCESS,
-    result
-  })
+  if (user.verify === UserVerifyStatus.Banned) {
+    throw new ErrorWithStatus({
+      message: USERS_MESSAGE.USER_BANNED,
+      status: HTTP_STATUS.FORBIDDEN //403
+    })
+  }
+  //if reach here, thet mean the user not verified yet, we recrate verify token and
+  // update the user with that user_id and set verified = true, email_verify_token = ''
+  const result = await usersService.resendVerifyEmail(user_id)
+  return res.json(result)
 }

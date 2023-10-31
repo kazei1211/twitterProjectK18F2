@@ -255,7 +255,6 @@ export const emailVerifyTokenValidator = validate(
                 token: value,
                 secreteOrPublicKey: process.env.JWT_SECRET_EMAIL_VERIFY_TOKEN as string
               })
-
               //after successfully verify the email_verify_token, we have a payload
               //store it in req.decoded_email_verify_token
               ;(req as Request).decoded_email_verify_token = decoded_email_verify_token

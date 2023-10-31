@@ -1,5 +1,10 @@
 import { Router } from 'express'
-import { emailVerifyTokenController, loginController, logoutController } from '~/controllers/users.controllers'
+import {
+  emailVerifyTokenController,
+  loginController,
+  logoutController,
+  resendEmailVerifyTokenController
+} from '~/controllers/users.controllers'
 import {
   accessTokenValidator,
   emailVerifyTokenValidator,
@@ -59,4 +64,14 @@ method: Post
 body: {email_verify_token: string}
 */
 usersRoute.post('/verify-email', emailVerifyTokenValidator, wrapAsync(emailVerifyTokenController))
+/*
+description: resend email verify token
+when the email is lost or email verify token is expired, user can resend the email verify token
+method: post 
+path: /users/resend-email-verify-token
+headers: {Authorization: Bearer ${access_token} // user have to login first to get the access token
+body: {}
+*/
+
+usersRoute.post('/resend-email-verify-token', accessTokenValidator, wrapAsync(resendEmailVerifyTokenController))
 export default usersRoute
