@@ -1,7 +1,7 @@
 import express, { NextFunction } from 'express'
-import usersRoute from './routes/users.routes'
 import databaseService from './services/database.services'
 import { defaultErrorHandler } from './middlewares/error.middlewares'
+import usersRouter from './routes/users.routes'
 
 const app = express()
 app.use(express.json())
@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-app.use('/users', usersRoute)
+app.use('/users', usersRouter)
 //localhost:3000/users/tweets
 
 app.use(defaultErrorHandler)

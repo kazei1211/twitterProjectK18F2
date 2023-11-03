@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   emailVerifyTokenController,
   forgotPasswordController,
+  getMeController,
   loginController,
   logoutController,
   resendEmailVerifyTokenController,
@@ -21,7 +22,7 @@ import { registerController } from '~/controllers/users.controllers'
 import { registerValidator } from '~/middlewares/users.middlewares'
 import { wrapAsync } from '~/utils/handler'
 
-const usersRoute = Router()
+const usersRouter = Router()
 
 // des: login user
 // path: /users/login
@@ -31,7 +32,7 @@ const usersRoute = Router()
 //   "password": string
 // }
 
-usersRoute.get('/login', loginValidator, wrapAsync(loginController))
+usersRouter.get('/login', loginValidator, wrapAsync(loginController))
 
 /*
 Description: resiter new user
@@ -45,7 +46,7 @@ Bpdy:{
   "date_of_birth": string following ISO 8601 standard (YYYY-MM-DD)
 }
 */
-usersRoute.post('/register', registerValidator, wrapAsync(registerController))
+usersRouter.post('/register', registerValidator, wrapAsync(registerController))
 
 /*
 description: logout user
@@ -57,7 +58,7 @@ body: {
   body: {refresh_token: string}
 }
  */
-usersRoute.post('/logout', accessTokenValidator, refreshTokenValidator, wrapAsync(logoutController))
+usersRouter.post('/logout', accessTokenValidator, refreshTokenValidator, wrapAsync(logoutController))
 
 /*
 Description: verify email token,
@@ -69,7 +70,7 @@ path: /users/verify-email
 method: Post
 body: {email_verify_token: string}
 */
-usersRoute.post('/verify-email', emailVerifyTokenValidator, wrapAsync(emailVerifyTokenController))
+usersRouter.post('/verify-email', emailVerifyTokenValidator, wrapAsync(emailVerifyTokenController))
 
 /*
 description: resend email verify token
@@ -79,7 +80,7 @@ path: /users/resend-email-verify-token
 headers: {Authorization: Bearer ${access_token} // user have to login first to get the access token
 body: {}
 */
-usersRoute.post('/resend-email-verify-token', accessTokenValidator, wrapAsync(resendEmailVerifyTokenController))
+usersRouter.post('/resend-email-verify-token', accessTokenValidator, wrapAsync(resendEmailVerifyTokenController))
 
 /*
 description: forgot password, the user sendd the email request to reset password
@@ -88,7 +89,7 @@ path: /users/forgot-password
 method: post
 body: {email: string}
 */
-usersRoute.post('/forgot-password', forgotPasswordValidator, wrapAsync(forgotPasswordController))
+usersRouter.post('/forgot-password', forgotPasswordValidator, wrapAsync(forgotPasswordController))
 
 /*
 des: user enter the lnk fo rrreset password
@@ -100,7 +101,7 @@ method: post
 body: {forgot_password_token: string}
 */
 
-usersRoute.post(
+usersRouter.post(
   '/verify-forgot-password',
   verifyForgotPasswordTokenValidator,
   wrapAsync(verifyForgotPasswordTokenController)
@@ -114,11 +115,14 @@ usersRoute.post(
 // method: post
 // body: {forgot_password_token: string}
 //
-usersRoute.post(
+usersRouter.post(
   '/reset-password',
   resetPasswordValidator,
   verifyForgotPasswordTokenValidator,
   wrapAsync(resetPasswordController)
 )
 
-export default usersRoute
+/*
+ */
+usersRouter.get('/me', accessTokenValidator, wrapAsync(getMeController))
+export default usersRouter
