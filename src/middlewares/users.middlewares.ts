@@ -6,9 +6,12 @@ import { ParamSchema, check, checkSchema } from 'express-validator'
 import { JsonWebTokenError } from 'jsonwebtoken'
 import { capitalize } from 'lodash'
 import { ObjectId } from 'mongodb'
+import { UserVerifyStatus } from '~/constants/enums'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { USERS_MESSAGE } from '~/constants/messages'
 import { ErrorWithStatus } from '~/models/Errors'
+import { TokenPayload } from '~/models/requests/User.request'
+import User from '~/models/schemas/User.schema'
 import databaseService from '~/services/database.services'
 import usersService from '~/services/user.services'
 import { hashPassword } from '~/utils/crypto'
@@ -70,32 +73,79 @@ const dateOfBirthSchema: ParamSchema = {
   errorMessage: USERS_MESSAGE.DATE_OF_BIRTH_BE_ISO8601
 }
 
+const emailRegisterSchema: ParamSchema = {
+  notEmpty: {
+    errorMessage: USERS_MESSAGE.EMAIL_IS_REQUIRED
+  },
+  trim: true,
+  isEmail: {
+    errorMessage: USERS_MESSAGE.EMAIL_IS_INVALID
+  },
+  custom: {
+    options: async (value, { req }) => {
+      const isExists = await usersService.checkEmailExists(value)
+      if (isExists) {
+        throw new Error(USERS_MESSAGE.EMAIL_ALREADY_EXISTS)
+      }
+      return true
+    }
+  }
+}
+
+const emailLoginSchema: ParamSchema = {
+  notEmpty: {
+    errorMessage: USERS_MESSAGE.EMAIL_IS_REQUIRED
+  },
+  isEmail: {
+    errorMessage: USERS_MESSAGE.EMAIL_IS_INVALID
+  },
+  custom: {
+    options: async (value, { req }) => {
+      //  base on the email and password i will check if the user is exist
+      const user = await databaseService.users.findOne({
+        email: value,
+        password: hashPassword(req.body.password)
+      })
+      if (user === null) {
+        throw new Error(USERS_MESSAGE.EMAIL_OR_PASSWORD_IS_INCORRECT)
+      }
+      req.user = user
+      return true
+    }
+  }
+}
+
+const nameSchema: ParamSchema = {
+  notEmpty: {
+    errorMessage: USERS_MESSAGE.NAME_IS_REQUIRED
+  },
+  isString: {
+    errorMessage: USERS_MESSAGE.NAME_MUST_BE_A_STRING
+  },
+  trim: true,
+  isLength: {
+    options: { min: 1, max: 100 },
+    errorMessage: USERS_MESSAGE.NAME_LENGTH_MUST_BE_FROM_1_TO_100
+  }
+}
+
+const imageSchema: ParamSchema = {
+  optional: true,
+  isString: {
+    errorMessage: USERS_MESSAGE.IMAGE_URL_MUST_BE_A_STRING
+  },
+  trim: true,
+  isLength: {
+    options: { min: 1, max: 400 },
+    errorMessage: USERS_MESSAGE.IMAGE_URL_LENGTH_MUST_BE_FROM_1_TO_400
+  }
+}
+
 // i will crearte an middlewares checking if the emial and password is being sent
 export const loginValidator = validate(
   checkSchema(
     {
-      email: {
-        notEmpty: {
-          errorMessage: USERS_MESSAGE.EMAIL_IS_REQUIRED
-        },
-        isEmail: {
-          errorMessage: USERS_MESSAGE.EMAIL_IS_INVALID
-        },
-        custom: {
-          options: async (value, { req }) => {
-            //  base on the email and password i will check if the user is exist
-            const user = await databaseService.users.findOne({
-              email: value,
-              password: hashPassword(req.body.password)
-            })
-            if (user === null) {
-              throw new Error(USERS_MESSAGE.EMAIL_OR_PASSWORD_IS_INCORRECT)
-            }
-            req.user = user
-            return true
-          }
-        }
-      },
+      email: emailLoginSchema,
       password: {
         notEmpty: {
           errorMessage: USERS_MESSAGE.PASSWORD_IS_REQUIRED
@@ -126,37 +176,8 @@ export const loginValidator = validate(
 export const registerValidator = validate(
   checkSchema(
     {
-      name: {
-        notEmpty: {
-          errorMessage: USERS_MESSAGE.NAME_IS_REQUIRED
-        },
-        isString: {
-          errorMessage: USERS_MESSAGE.NAME_MUST_BE_A_STRING
-        },
-        trim: true,
-        isLength: {
-          options: { min: 1, max: 100 },
-          errorMessage: USERS_MESSAGE.NAME_LENGTH_MUST_BE_FROM_1_TO_100
-        }
-      },
-      email: {
-        notEmpty: {
-          errorMessage: USERS_MESSAGE.EMAIL_IS_REQUIRED
-        },
-        trim: true,
-        isEmail: {
-          errorMessage: USERS_MESSAGE.EMAIL_IS_INVALID
-        },
-        custom: {
-          options: async (value, { req }) => {
-            const isExists = await usersService.checkEmailExists(value)
-            if (isExists) {
-              throw new Error(USERS_MESSAGE.EMAIL_ALREADY_EXISTS)
-            }
-            return true
-          }
-        }
-      },
+      name: nameSchema,
+      email: emailRegisterSchema,
       password: passwordSchema,
       confirm_password: confirmPasswordSchema,
       date_of_birth: dateOfBirthSchema
@@ -370,12 +391,103 @@ export const verifyForgotPasswordTokenValidator = validate(
     ['body']
   )
 )
-
 export const resetPasswordValidator = validate(
   checkSchema(
     {
       password: passwordSchema,
       confirm_password: confirmPasswordSchema
+    },
+    ['body']
+  )
+)
+
+export const verifiedUserValidator = async (req: Request, res: Response, next: NextFunction) => {
+  const { verify } = req.decoded_authorization as TokenPayload
+  if (verify !== UserVerifyStatus.Verified) {
+    return next(
+      new ErrorWithStatus({
+        message: USERS_MESSAGE.USER_NOT_VERIFIED,
+        status: HTTP_STATUS.FORBIDDEN //403
+      })
+    )
+  }
+  next()
+}
+
+export const updateMeValidator = validate(
+  checkSchema(
+    {
+      name: {
+        optional: true, //đc phép có hoặc k
+        ...nameSchema, //phân rã nameSchema ra
+        notEmpty: undefined //ghi đè lên notEmpty của nameSchema
+      },
+      date_of_birth: {
+        optional: true, //đc phép có hoặc k
+        ...dateOfBirthSchema, //phân rã nameSchema ra
+        notEmpty: undefined //ghi đè lên notEmpty của nameSchema
+      },
+      bio: {
+        optional: true,
+        isString: {
+          errorMessage: USERS_MESSAGE.BIO_MUST_BE_A_STRING ////messages.ts thêm BIO_MUST_BE_A_STRING: 'Bio must be a string'
+        },
+        trim: true, //trim phát đặt cuối, nếu k thì nó sẽ lỗi validatior
+        isLength: {
+          options: {
+            min: 1,
+            max: 200
+          },
+          errorMessage: USERS_MESSAGE.BIO_LENGTH_MUST_BE_LESS_THAN_200 //messages.ts thêm BIO_LENGTH_MUST_BE_LESS_THAN_200: 'Bio length must be less than 200'
+        }
+      },
+      //giống bio
+      location: {
+        optional: true,
+        isString: {
+          errorMessage: USERS_MESSAGE.LOCATION_MUST_BE_A_STRING ////messages.ts thêm LOCATION_MUST_BE_A_STRING: 'Location must be a string'
+        },
+        trim: true,
+        isLength: {
+          options: {
+            min: 1,
+            max: 200
+          },
+          errorMessage: USERS_MESSAGE.LOCATION_LENGTH_MUST_BE_LESS_THAN_200 //messages.ts thêm LOCATION_LENGTH_MUST_BE_LESS_THAN_200: 'Location length must be less than 200'
+        }
+      },
+      //giống location
+      website: {
+        optional: true,
+        isString: {
+          errorMessage: USERS_MESSAGE.WEBSITE_MUST_BE_A_STRING ////messages.ts thêm WEBSITE_MUST_BE_A_STRING: 'Website must be a string'
+        },
+        trim: true,
+        isLength: {
+          options: {
+            min: 1,
+            max: 200
+          },
+
+          errorMessage: USERS_MESSAGE.WEBSITE_LENGTH_MUST_BE_LESS_THAN_200 //messages.ts thêm WEBSITE_LENGTH_MUST_BE_LESS_THAN_200: 'Website length must be less than 200'
+        }
+      },
+      username: {
+        optional: true,
+        isString: {
+          errorMessage: USERS_MESSAGE.USERNAME_MUST_BE_A_STRING ////messages.ts thêm USERNAME_MUST_BE_A_STRING: 'Username must be a string'
+        },
+        trim: true,
+        isLength: {
+          options: {
+            min: 1,
+            max: 50
+          },
+          errorMessage: USERS_MESSAGE.USERNAME_LENGTH_MUST_BE_LESS_THAN_50 //messages.ts thêm USERNAME_LENGTH_MUST_BE_LESS_THAN_50: 'Username length must be less than 50'
+        }
+      },
+      avatar: imageSchema,
+      cover_photo: imageSchema
     },
     ['body']
   )

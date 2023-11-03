@@ -3,10 +3,12 @@ import {
   emailVerifyTokenController,
   forgotPasswordController,
   getMeController,
+  getProfileController,
   loginController,
   logoutController,
   resendEmailVerifyTokenController,
   resetPasswordController,
+  updateMeController,
   verifyForgotPasswordTokenController
 } from '~/controllers/users.controllers'
 import {
@@ -16,11 +18,15 @@ import {
   loginValidator,
   refreshTokenValidator,
   resetPasswordValidator,
+  updateMeValidator,
+  verifiedUserValidator,
   verifyForgotPasswordTokenValidator
 } from '~/middlewares/users.middlewares'
 import { registerController } from '~/controllers/users.controllers'
 import { registerValidator } from '~/middlewares/users.middlewares'
 import { wrapAsync } from '~/utils/handler'
+import { filterMiddleware } from '~/middlewares/common.middlewares'
+import { UpdateMeReqBody } from '~/models/requests/User.request'
 
 const usersRouter = Router()
 
@@ -125,4 +131,26 @@ usersRouter.post(
 /*
  */
 usersRouter.get('/me', accessTokenValidator, wrapAsync(getMeController))
+
+usersRouter.patch(
+  '/me',
+  accessTokenValidator,
+  verifiedUserValidator,
+  filterMiddleware<UpdateMeReqBody>([
+    'name',
+    'date_of_birth',
+    'bio',
+    'location',
+    'website',
+    'avatar',
+    'username',
+    'cover_photo'
+  ]),
+  updateMeValidator,
+  wrapAsync(updateMeController)
+)
+//truyền khác key là nó báo lỗi ngay
+
+//get profile
+usersRouter.get('/:username', wrapAsync(getProfileController))
 export default usersRouter
