@@ -5,6 +5,7 @@ import {
   loginController,
   logoutController,
   resendEmailVerifyTokenController,
+  resetPasswordController,
   verifyForgotPasswordTokenController
 } from '~/controllers/users.controllers'
 import {
@@ -13,6 +14,7 @@ import {
   forgotPasswordValidator,
   loginValidator,
   refreshTokenValidator,
+  resetPasswordValidator,
   verifyForgotPasswordTokenValidator
 } from '~/middlewares/users.middlewares'
 import { registerController } from '~/controllers/users.controllers'
@@ -102,6 +104,21 @@ usersRoute.post(
   '/verify-forgot-password',
   verifyForgotPasswordTokenValidator,
   wrapAsync(verifyForgotPasswordTokenController)
+)
+
+// des: user enter the lnk fo rrreset password
+// they wil send a rewuqest with the forgot_password_token and new password
+// sever will check the forgot_password_token is valid or not
+// if valid, sever will direect to chang password page update the user with that user_id and set password = new password
+// path: /users/reset-password
+// method: post
+// body: {forgot_password_token: string}
+//
+usersRoute.post(
+  '/reset-password',
+  resetPasswordValidator,
+  verifyForgotPasswordTokenValidator,
+  wrapAsync(resetPasswordController)
 )
 
 export default usersRoute

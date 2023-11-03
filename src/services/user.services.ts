@@ -123,6 +123,14 @@ class UsersService {
     console.log(forgot_password_token)
     return { message: USERS_MESSAGE.CHECK_EMAIL_FOR_RESET_PASSWORD }
   }
+
+  async resetPassword({ user_id, password }: { user_id: string; password: string }) {
+    //base on user_id, find and update password
+    await databaseService.users.updateOne({ _id: new ObjectId(user_id) }, [
+      { $set: { password: hashPassword(password), forgot_password_token: '', update_at: '$$NOW' } }
+    ])
+    return { message: USERS_MESSAGE.RESET_PASSWORD_SUCCESS }
+  }
 }
 
 const usersService = new UsersService()

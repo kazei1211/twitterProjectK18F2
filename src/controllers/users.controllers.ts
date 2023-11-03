@@ -7,6 +7,7 @@ import {
   LoginReqBody,
   LogoutReqBody,
   RegisterReqBody,
+  ResetPasswordReqBody,
   TokenPayload
 } from '~/models/requests/User.request'
 import { ObjectId } from 'mongodb'
@@ -125,4 +126,16 @@ export const verifyForgotPasswordTokenController = async (req: Request, res: Res
   return res.json({
     message: USERS_MESSAGE.VERIFY_FORGOT_PASSWORD_TOKEN_SUCCESS
   })
+}
+
+export const resetPasswordController = async (
+  req: Request<ParamsDictionary, any, ResetPasswordReqBody>,
+  res: Response
+) => {
+  //if they want to reset password, we need user_id and the new password
+  const { user_id } = req.decoded_forgot_password_token as TokenPayload
+  //use _id to find and updat user with password
+  const { password } = req.body
+  const result = await usersService.resetPassword({ user_id, password })
+  return res.json(result)
 }
