@@ -1,23 +1,31 @@
 import { Router } from 'express'
 import {
+  changePasswordController,
   emailVerifyTokenController,
+  followController,
   forgotPasswordController,
   getMeController,
   getProfileController,
   loginController,
   logoutController,
+  oAuthController,
+  refreshTokenConroller,
   resendEmailVerifyTokenController,
   resetPasswordController,
+  unFollowController,
   updateMeController,
   verifyForgotPasswordTokenController
 } from '~/controllers/users.controllers'
 import {
   accessTokenValidator,
+  changePasswordValidator,
   emailVerifyTokenValidator,
+  followValidator,
   forgotPasswordValidator,
   loginValidator,
   refreshTokenValidator,
   resetPasswordValidator,
+  unFollowValidator,
   updateMeValidator,
   verifiedUserValidator,
   verifyForgotPasswordTokenValidator
@@ -38,7 +46,7 @@ const usersRouter = Router()
 //   "password": string
 // }
 
-usersRouter.get('/login', loginValidator, wrapAsync(loginController))
+usersRouter.post('/login', loginValidator, wrapAsync(loginController))
 
 /*
 Description: resiter new user
@@ -153,4 +161,31 @@ usersRouter.patch(
 
 //get profile
 usersRouter.get('/:username', wrapAsync(getProfileController))
+
+//follow
+usersRouter.post('/follow', accessTokenValidator, verifiedUserValidator, followValidator, wrapAsync(followController))
+
+//unfollow
+usersRouter.delete(
+  '/unfollow/:user_id',
+  accessTokenValidator,
+  verifiedUserValidator,
+  unFollowValidator,
+  wrapAsync(unFollowController)
+)
+
+//change password
+usersRouter.put(
+  '/change-password',
+  accessTokenValidator,
+  verifiedUserValidator,
+  changePasswordValidator,
+  wrapAsync(changePasswordController)
+)
+
+//refresh_token
+usersRouter.post('/refresh-token', refreshTokenValidator, wrapAsync(refreshTokenConroller))
+
+//google oauth
+usersRouter.get('/oauth/google', wrapAsync(oAuthController))
 export default usersRouter

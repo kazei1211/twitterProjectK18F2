@@ -9,6 +9,8 @@ import { ObjectId } from 'mongodb'
 import { USERS_MESSAGE } from '~/constants/messages'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { ErrorWithStatus } from '~/models/Errors'
+import { Follower } from '~/models/schemas/Followers.chema'
+import axios from 'axios'
 
 class UsersService {
   //fucntion to get user is and put into payload to create an access token
@@ -219,6 +221,155 @@ class UsersService {
       })
     }
     return user
+  }
+
+  async follow(user_id: string, followed_user_id: string) {
+    //check if the user is followed or not
+    const isFollowed = await databaseService.followers.findOne({
+      user_id: new ObjectId(user_id),
+      followed_user_id: new ObjectId(followed_user_id)
+    })
+
+    // if the user is followed, we will display an message to the user that they are already followed
+    if (isFollowed !== null) {
+      return { message: USERS_MESSAGE.USER_ALREADY_FOLLOWED }
+    }
+    //if not followed, we will insert the user_id and followed_user_id to the followers collection
+    await databaseService.followers.insertOne(
+      new Follower({
+        user_id: new ObjectId(user_id),
+        followed_user_id: new ObjectId(followed_user_id)
+      })
+    )
+    return { message: USERS_MESSAGE.FOLLOW_SUCCESS }
+  }
+
+  async unfollow(user_id: string, followed_user_id: string) {
+    //check if the user is followed or not
+    const isFollowed = await databaseService.followers.findOne({
+      user_id: new ObjectId(user_id),
+      followed_user_id: new ObjectId(followed_user_id)
+    })
+
+    // if the user is followed, we will display an message to the user that they are already followed
+    if (!isFollowed) {
+      return { message: USERS_MESSAGE.ALREADY_UNFOLLOWED }
+    }
+    //if not followed, we will insert the user_id and followed_user_id to the followers collection
+    await databaseService.followers.deleteOne({
+      user_id: new ObjectId(user_id),
+      followed_user_id: new ObjectId(followed_user_id)
+    })
+    return { message: USERS_MESSAGE.UNFOLLOW_SUCCESS }
+  }
+
+  async changePassword(user_id: string, password: string) {
+    //update to db
+    await databaseService.users.updateOne({ _id: new ObjectId(user_id) }, [
+      {
+        $set: {
+          password: hashPassword(password),
+          forgot_password_token: '',
+          update_at: '$$NOW'
+        }
+      }
+    ])
+    return { message: USERS_MESSAGE.CHANGE_PASSWORD_SUCCESS }
+  }
+
+  async refreshToken({
+    user_id,
+    verify,
+    refresh_token
+  }: {
+    user_id: string
+    verify: UserVerifyStatus
+    refresh_token: string
+  }) {
+    //c reate new access token and refresh token
+    const [access_token, new_refresh_token] = await this.signAccessTokenAndRefreshToken({
+      user_id,
+      verify
+    })
+    await databaseService.refreshTokens.deleteOne({ token: refresh_token })
+    await databaseService.refreshTokens.insertOne(
+      new RefreshToken({ token: new_refresh_token, user_id: new ObjectId(user_id) })
+    )
+    return { access_token, refresh_token: new_refresh_token }
+  }
+
+  //get oAuthGoogleToken
+  private async oAuthGoogleToken(code: string) {
+    const body = {
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      grant_type: 'authorization_code'
+    }
+    const { data } = await axios.post('https://oauth2.googleapis.com/token', body, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    return data as {
+      access_token: string
+      id_token: string
+    }
+  }
+  private async getGoogleUserInfo(access_token: string, id_token: string) {
+    const { data } = await axios.get('https://www.googleapis.com/oauth2/v1/userinfo', {
+      params: {
+        access_token,
+        alt: 'json'
+      },
+      headers: {
+        Authorization: `Bearer ${id_token}`
+      }
+    })
+    return data as {
+      id: string
+      email: string
+      email_verified: boolean
+      name: string
+      given_name: string
+      family_name: string
+      picture: string
+      locale: string
+    }
+  }
+
+  async oAuth(code: string) {
+    const { id_token, access_token } = await this.oAuthGoogleToken(code)
+    const userInfo = await this.getGoogleUserInfo(access_token, id_token)
+    if (!userInfo.email_verified) {
+      throw new ErrorWithStatus({
+        message: USERS_MESSAGE.EMAIL_NOT_VERIFIED,
+        status: HTTP_STATUS.BAD_REQUEST
+      })
+    }
+    const user = await databaseService.users.findOne({ email: userInfo.email })
+
+    if (user) {
+      const [access_token, refresh_token] = await this.signAccessTokenAndRefreshToken({
+        user_id: user._id.toString(),
+        verify: user.verify
+      })
+      await databaseService.refreshTokens.insertOne(
+        new RefreshToken({ token: refresh_token, user_id: new ObjectId(user._id) })
+      )
+      return { access_token, refresh_token, new_user: 0, verfy: user.verify }
+    } else {
+      const password = Math.random().toString(36).slice(1, 15)
+      const data = await this.register({
+        name: userInfo.name,
+        email: userInfo.email,
+        password,
+        confirm_password: password,
+        date_of_birth: new Date().toISOString()
+      })
+      return { ...data, new_user: 1, verify: UserVerifyStatus.Unverified }
+    }
   }
 }
 const usersService = new UsersService()

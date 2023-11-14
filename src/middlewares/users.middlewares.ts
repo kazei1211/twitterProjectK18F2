@@ -1,14 +1,17 @@
 // pretend i am a route '/login'
 // so the userd will send you email and password
 // then i will create 1 req has a body consists of email and password
+import exp from 'constants'
+import { REFUSED } from 'dns'
 import { Request, Response, NextFunction } from 'express'
-import { ParamSchema, check, checkSchema } from 'express-validator'
+import { ParamSchema, check, checkSchema, param } from 'express-validator'
 import { JsonWebTokenError } from 'jsonwebtoken'
 import { capitalize } from 'lodash'
 import { ObjectId } from 'mongodb'
 import { UserVerifyStatus } from '~/constants/enums'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { USERS_MESSAGE } from '~/constants/messages'
+import { REGEX_USERNAME } from '~/constants/regex'
 import { ErrorWithStatus } from '~/models/Errors'
 import { TokenPayload } from '~/models/requests/User.request'
 import User from '~/models/schemas/User.schema'
@@ -18,6 +21,7 @@ import { hashPassword } from '~/utils/crypto'
 import { verifyToken } from '~/utils/jwt'
 import { validate } from '~/utils/validation'
 
+//#region Schemas
 const passwordSchema: ParamSchema = {
   notEmpty: {
     errorMessage: USERS_MESSAGE.PASSWORD_IS_REQUIRED
@@ -141,6 +145,37 @@ const imageSchema: ParamSchema = {
   }
 }
 
+const userIdSchema: ParamSchema = {
+  custom: {
+    options: async (value, { req }) => {
+      //check the value is objectID or not
+      if (!ObjectId.isValid(value)) {
+        throw new ErrorWithStatus({
+          message: USERS_MESSAGE.INVALID_USER_ID,
+          status: HTTP_STATUS.NOT_FOUND
+        })
+      }
+
+      //go to database and check if the user is exist or not
+      const user = await databaseService.users.findOne({
+        _id: new ObjectId(value)
+      })
+      if (user === null) {
+        throw new ErrorWithStatus({
+          message: USERS_MESSAGE.USER_NOT_FOUND,
+          status: HTTP_STATUS.NOT_FOUND
+        })
+      }
+
+      //IF PASS RETURN TRUE
+      return true
+    }
+  }
+}
+//#endregion
+
+//#region Validators
+
 // i will crearte an middlewares checking if the emial and password is being sent
 export const loginValidator = validate(
   checkSchema(
@@ -173,6 +208,7 @@ export const loginValidator = validate(
     ['body']
   )
 )
+
 export const registerValidator = validate(
   checkSchema(
     {
@@ -185,6 +221,7 @@ export const registerValidator = validate(
     ['body']
   )
 )
+
 export const accessTokenValidator = validate(
   checkSchema(
     {
@@ -222,6 +259,7 @@ export const accessTokenValidator = validate(
     ['headers']
   )
 )
+
 export const refreshTokenValidator = validate(
   checkSchema(
     {
@@ -262,6 +300,7 @@ export const refreshTokenValidator = validate(
     ['body']
   )
 )
+
 export const emailVerifyTokenValidator = validate(
   checkSchema(
     {
@@ -303,6 +342,7 @@ export const emailVerifyTokenValidator = validate(
     ['body']
   )
 )
+
 export const forgotPasswordValidator = validate(
   checkSchema(
     {
@@ -334,6 +374,7 @@ export const forgotPasswordValidator = validate(
     ['body']
   )
 )
+
 export const verifyForgotPasswordTokenValidator = validate(
   checkSchema(
     {
@@ -391,6 +432,7 @@ export const verifyForgotPasswordTokenValidator = validate(
     ['body']
   )
 )
+
 export const resetPasswordValidator = validate(
   checkSchema(
     {
@@ -478,12 +520,21 @@ export const updateMeValidator = validate(
           errorMessage: USERS_MESSAGE.USERNAME_MUST_BE_A_STRING ////messages.ts thêm USERNAME_MUST_BE_A_STRING: 'Username must be a string'
         },
         trim: true,
-        isLength: {
-          options: {
-            min: 1,
-            max: 50
-          },
-          errorMessage: USERS_MESSAGE.USERNAME_LENGTH_MUST_BE_LESS_THAN_50 //messages.ts thêm USERNAME_LENGTH_MUST_BE_LESS_THAN_50: 'Username length must be less than 50'
+        custom: {
+          options: async (value, { req }) => {
+            if (REGEX_USERNAME.test(value) === false) {
+              throw new Error(USERS_MESSAGE.USERNAME_IS_INVALID)
+            }
+            //find if user is exist
+            const user = await databaseService.users.findOne({
+              username: value
+            })
+
+            if (user) {
+              throw new Error(USERS_MESSAGE.USERNAME_ALREADY_EXISTS)
+            }
+            return true
+          }
         }
       },
       avatar: imageSchema,
@@ -492,3 +543,51 @@ export const updateMeValidator = validate(
     ['body']
   )
 )
+
+export const followValidator = validate(
+  checkSchema(
+    {
+      followed_user_id: userIdSchema
+    },
+    ['body']
+  )
+)
+
+export const unFollowValidator = validate(checkSchema({ user_id: userIdSchema }, ['params']))
+
+export const changePasswordValidator = validate(
+  checkSchema(
+    {
+      old_password: {
+        ...passwordSchema,
+        custom: {
+          options: async (value, { req }) => {
+            const { user_id } = req.decoded_authorization as TokenPayload
+            const user = await databaseService.users.findOne({
+              _id: new ObjectId(user_id)
+            })
+            if (user === null) {
+              throw new ErrorWithStatus({
+                message: USERS_MESSAGE.USER_NOT_FOUND,
+                status: HTTP_STATUS.NOT_FOUND
+              })
+            }
+            //if exits, check old-pass is not the same as new-pass
+            const { password } = user
+            if (password !== hashPassword(value)) {
+              throw new ErrorWithStatus({
+                message: USERS_MESSAGE.OLD_PASSWORD_IS_THE_SAME_AS_NEW_PASSWORD,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+            return true
+          }
+        }
+      },
+      password: passwordSchema,
+      confirm_password: confirmPasswordSchema
+    },
+    ['body']
+  )
+)
+//#endregion Validators
