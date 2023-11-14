@@ -9,7 +9,7 @@ export const signToken = ({
 }: {
   payLoad: string | object | Buffer
   privateKey: string
-  options: jwt.SignOptions
+  options?: jwt.SignOptions
 }) => {
   return new Promise<string>((resolve, reject) => {
     jwt.sign(payLoad, privateKey, options, (err, token) => {

@@ -1,8 +1,6 @@
 import { JwtPayload } from 'jsonwebtoken'
 import { TokenType, UserVerifyStatus } from '~/constants/enums'
-import User from '../schemas/User.schema'
 import { ParamsDictionary } from 'express-serve-static-core'
-import { extend } from 'lodash'
 
 export interface RegisterReqBody {
   name: string
@@ -25,6 +23,8 @@ export interface TokenPayload extends JwtPayload {
   user_id: string
   token_type: TokenType
   verify: UserVerifyStatus
+  exp: number
+  iat: number
 }
 
 export interface EmailVerifyRequestBody {
@@ -60,6 +60,6 @@ export interface UnfollowReqParams extends ParamsDictionary {
   user_id: string
 }
 
-export interface refreshTokenReqBody {
+export interface RefreshTokenReqBody {
   refresh_token: string
 }
